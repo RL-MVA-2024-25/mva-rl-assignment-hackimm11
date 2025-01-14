@@ -1,13 +1,12 @@
-import random
-from copy import deepcopy
 import numpy as np
 import torch
 import torch.nn as nn
+import random
+from copy import deepcopy
 from gymnasium.wrappers import TimeLimit
 from env_hiv import HIVPatient
 from evaluate import evaluate_HIV
 
-# Initialize the environment
 env = TimeLimit(env=HIVPatient(domain_randomization=True), max_episode_steps=200)
 
 class ReplayBuffer:
@@ -40,29 +39,28 @@ class ReplayBuffer:
 class ProjectAgent:
     def __init__(self, save_path="src/best_dqn_model.pt"):
         self.save_path = save_path
+        self.max_episodes = 800
         self.gamma = 0.95
-        self.learning_rate = 0.001
         self.epsilon_min = 0.02
         self.epsilon_max = 1.0
         self.epsilon_decay_period = 20000
         self.epsilon_delay_decay = 100
-        self.batch_size = 512
-        self.buffer_size = 100000
+        self.learning_rate = 0.001
         self.gradient_steps = 1
         self.update_target_freq = 1000
-        self.max_episodes = 800
-
+        self.batch_size = 512
+        self.buffer_size = 100000
+        
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.memory = ReplayBuffer(self.buffer_size, self.device)
 
-        self.model = self.create_model().to(self.device)
+        self.model = self.dqn().to(self.device)
         self.target_model = deepcopy(self.model).to(self.device)
         self.target_model.eval()
-
+        self.memory = ReplayBuffer(self.buffer_size, self.device)
         self.criterion = nn.SmoothL1Loss()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
 
-    def create_model(self):
+    def dqn(self):
         state_dim = env.observation_space.shape[0]
         n_action = env.action_space.n
         hidden_units = 256
@@ -80,10 +78,7 @@ class ProjectAgent:
         )
 
     def act(self, observation, use_random=False):
-        """
-        Decides action based on the current policy or random selection.
-        `use_random` determines if random action is taken.
-        """
+        
         if use_random:
             return env.action_space.sample()
         with torch.no_grad():
@@ -108,14 +103,13 @@ class ProjectAgent:
         torch.save(self.model.state_dict(), path)
 
     def load(self):
-        
-        device = self.device  
-        self.model.load_state_dict(torch.load(self.save_path, map_location=device))
-        self.model.to(device)  
+        self.model.load_state_dict(torch.load(self.save_path, map_location=self.device))
+        self.model.to(self.device)  
         self.model.eval()
+
     def train(self):
         epsilon = self.epsilon_max
-        epsilon_step = (self.epsilon_max - self.epsilon_min) / self.epsilon_decay_period
+        epsilon_step = (self.epsilon_max - self.epsilon_min)/self.epsilon_decay_period
         best_validation_score = float('-inf')
         episode_rewards = []
         state, _ = env.reset()
@@ -168,5 +162,6 @@ class ProjectAgent:
                 episode_reward = 0
 
             step += 1
+        self.save('best_model_dqn_last_episode.pt')
 
         return episode_rewards
