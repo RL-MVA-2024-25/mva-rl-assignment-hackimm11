@@ -107,11 +107,12 @@ class ProjectAgent:
 
     def load(self):
         
-        device = self.device  
+        device = torch.device('cpu')
+        # self.path = os.getcwd() + "best.pt"
+        self.model = self.create_model()
         self.model.load_state_dict(torch.load(self.save_path, map_location=device))
-        self.model.to(device)  
         self.model.eval()
-    def train(self):
+def train(self):
         epsilon = self.epsilon_max
         epsilon_step = (self.epsilon_max - self.epsilon_min) / self.epsilon_decay_period
         best_validation_score = float('-inf')
