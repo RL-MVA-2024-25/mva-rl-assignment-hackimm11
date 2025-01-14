@@ -74,6 +74,8 @@ class ProjectAgent:
             nn.ReLU(),
             nn.Linear(hidden_units, hidden_units),
             nn.ReLU(),
+            nn.Linear(hidden_units, hidden_units),
+            nn.ReLU(),
             nn.Linear(hidden_units, n_action),
         )
 
